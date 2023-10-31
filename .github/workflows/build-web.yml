@@ -36,7 +36,6 @@ jobs:
 
       - name: Create Tag
         run: |
-          sed -i "s@ARG VERSION=.*@ARG VERSION=${{ steps.get-version.outputs.version }}@" Dockerfile
           git config --global user.name "${GITHUB_ACTOR}"
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
           git tag -a "${{ steps.get-version.outputs.version }}" -m "Release ${{ steps.get-version.outputs.version }}" || true
@@ -71,7 +70,6 @@ jobs:
       - name: Set PNPM
         if: steps.check-build.outputs.build == 1
         uses: pnpm/action-setup@v2
-        if: steps.check-build.outputs.build == 1
         with:
           version: 8
 
