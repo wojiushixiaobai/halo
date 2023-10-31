@@ -1,0 +1,111 @@
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: '0 1 * * *'
+
+name: Checkout and Create Release Version
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check Version
+        id: get-version
+        run: |
+          version=$(curl -s 'https://api.github.com/repos/halo-dev/halo/releases/latest' | jq -r ".tag_name")
+          echo "version=${version}" >> $GITHUB_OUTPUT
+
+      - name: Check Release
+        id: check-release
+        run: |
+          gh release view ${{ steps.get-version.outputs.version }} -R wojiushixiaobai/halo >/dev/null 2>&1 || echo "create=1" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check Buile
+        id: check-build
+        run: |
+          gh release view ${{ steps.get-version.outputs.version }} -R wojiushixiaobai/halo | grep halo-${{ steps.get-version.outputs.version }}.tar.gz >/dev/null 2>&1 || echo "build=1" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Tag
+        run: |
+          git config --global user.name "${GITHUB_ACTOR}"
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git tag -a "${{ steps.get-version.outputs.version }}" -m "Release ${{ steps.get-version.outputs.version }}" || true
+          git push origin "${{ steps.get-version.outputs.version }}" || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        if: steps.check-release.outputs.create == 1
+        run: |
+          gh release create ${{ steps.get-version.outputs.version }} --notes "Release ${{ steps.get-version.outputs.version }}" -R wojiushixiaobai/halo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get Source
+        if: steps.check-build.outputs.build == 1
+        uses: actions/checkout@v4
+        with:
+          repository: halo-dev/halo
+          ref: ${{ steps.get-version.outputs.version }}
+          fetch-depth: 0
+          path: halo
+
+      - name: Set OpenJDK
+        if: steps.check-build.outputs.build == 1
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          cache: 'gradle'
+          java-version: '17.0.8'
+
+      - name: Setup Node
+        if: steps.check-build.outputs.build == 1
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16.20'
+
+      - name: Set PNPM
+        if: steps.check-build.outputs.build == 1
+        run: |
+          npm install -g pnpm
+
+      - name: Setup Node
+        if: steps.check-build.outputs.build == 1
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16.20'
+
+      - name: Build Web
+        if: steps.check-build.outputs.build == 1
+        run: |
+          cd halo
+          sed -i "s@version=.*-SNAPSHOT@version=${{ steps.get-version.outputs.version }}@g" gradle.properties
+          make -C console build
+          ./gradlew downloadPluginPresets
+          ./gradlew clean build -x check
+
+      - name: Make Files
+        if: steps.check-build.outputs.build == 1
+        run: |
+          cd halo
+          mkdir -p build halo-${{ steps.get-version.outputs.version }}
+          cd dist && java -Djarmode=layertools -jar application.jar extract && cd ..
+          cp -f application/build/libs/*.jar halo-${{ steps.get-version.outputs.version }}/application.jar
+          tar -czf build/halo-${{ steps.get-version.outputs.version }}.tar.gz halo-${{ steps.get-version.outputs.version }}
+          echo "$(sha256sum build/halo-${{ steps.get-version.outputs.version }}.tar.gz | awk '{print $1}')  halo-${{ steps.get-version.outputs.version }}.tar.gz" > build/halo-${{ steps.get-version.outputs.version }}.tar.gz.sha256
+
+      - name: Upgrade Release
+        if: steps.check-build.outputs.build == 1
+        run: |
+          gh release upload ${{ steps.get-version.outputs.version }} halo/build/* -R wojiushixiaobai/halo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
