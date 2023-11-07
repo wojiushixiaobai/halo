@@ -9,7 +9,6 @@ halo jar 包, 本地部署使用
 
 ```bash
 # debian 或者 ubuntu 可以直接使用 apt 安装, 其他 redhat 或 centos 系统可以使用 yum 安装
-# 容器可以直接使用 openjdk:17-jre
 
 apt install openjdk-17-jre-headless
 ```
