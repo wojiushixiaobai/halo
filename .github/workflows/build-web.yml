@@ -64,8 +64,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
-          cache: 'gradle'
-          java-version: '17.0.8'
+          java-version: '17.0.8+7'
 
       - name: Setup Node
         if: steps.check-build.outputs.build == 1
@@ -78,17 +77,12 @@ jobs:
         run: |
           npm install -g pnpm
 
-      - name: Setup Node
-        if: steps.check-build.outputs.build == 1
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16.20'
-
       - name: Build Web
         if: steps.check-build.outputs.build == 1
         run: |
           cd halo
-          sed -i "s@version=.*-SNAPSHOT@version=${{ steps.get-version.outputs.version }}@g" gradle.properties
+          ver1=$(echo "${{ steps.get-version.outputs.version }}" | sed 's/v//g')
+          sed -i "s@version=.*-SNAPSHOT@version=${ver1}@g" gradle.properties
           make -C console build
           ./gradlew downloadPluginPresets
           ./gradlew clean build -x check
@@ -98,7 +92,6 @@ jobs:
         run: |
           cd halo
           mkdir -p build halo-${{ steps.get-version.outputs.version }}
-          cd dist && java -Djarmode=layertools -jar application.jar extract && cd ..
           cp -f application/build/libs/*.jar halo-${{ steps.get-version.outputs.version }}/application.jar
           tar -czf build/halo-${{ steps.get-version.outputs.version }}.tar.gz halo-${{ steps.get-version.outputs.version }}
           echo "$(sha256sum build/halo-${{ steps.get-version.outputs.version }}.tar.gz | awk '{print $1}')  halo-${{ steps.get-version.outputs.version }}.tar.gz" > build/halo-${{ steps.get-version.outputs.version }}.tar.gz.sha256

@@ -5,7 +5,14 @@ halo jar 包, 本地部署使用
 
 ## 食用方法
 
-环境要求: OpenJRE >= 17
+环境要求: OpenJRE >= 17.0.8
+
+```bash
+# debian 或者 ubuntu 可以直接使用 apt 安装, 其他 redhat 或 centos 系统可以使用 yum 安装
+# 容器可以直接使用 openjdk:17-jre
+
+apt install openjdk-17-jre-headless
+```
 
 ```
 # 定义工作目录和版本, 如有需要自行更换
@@ -17,15 +24,15 @@ mkdir -p ${WORKDIR}/build
 wget https://github.com/wojiushixiaobai/halo/releases/download/${VERSION}/halo-${VERSION}.tar.gz
 
 # 解压
-tar -xf halo-v2.10.0.tar.gz -C ${WORKDIR}/build --strip-components 1
+tar -xf halo-${VERSION}.tar.gz -C ${WORKDIR}/build --strip-components 1
 cd ${WORKDIR}/build
 java -Djarmode=layertools -jar application.jar extract
 
 # 复制文件
-cp -rf application/dependencies/* ${WORKDIR}/
-cp -rf application/spring-boot-loader/* ${WORKDIR}/
-cp -rf application/snapshot-dependencies/* ${WORKDIR}/
-cp -rf application/application/* ${WORKDIR}/
+cp -rf dependencies/* ${WORKDIR}/
+cp -rf spring-boot-loader/* ${WORKDIR}/
+cp -rf snapshot-dependencies/* ${WORKDIR}/
+cp -rf application/* ${WORKDIR}/
 ```
 
 ```bash
