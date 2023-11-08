@@ -1,4 +1,4 @@
-FROM openjdk:17-slim-buster as builder
+FROM jumpserver/openjdk:17-slim-buster as builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates binutils wget \
