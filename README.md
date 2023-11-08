@@ -16,9 +16,9 @@ apt install openjdk-17-jre-headless
 ```
 # 定义工作目录和版本, 如有需要自行更换
 WORKDIR=/opt/halo
-VERSION=v2.10.0
+VERSION=v2.10.2
 
-mkdir -p ${WORKDIR}/build
+mkdir -p ${WORKDIR}/build ${WORKDIR}/application
 
 wget https://github.com/wojiushixiaobai/halo/releases/download/${VERSION}/halo-${VERSION}.tar.gz
 
@@ -28,17 +28,61 @@ cd ${WORKDIR}/build
 java -Djarmode=layertools -jar application.jar extract
 
 # 复制文件
-cp -rf dependencies/* ${WORKDIR}/
-cp -rf spring-boot-loader/* ${WORKDIR}/
-cp -rf snapshot-dependencies/* ${WORKDIR}/
-cp -rf application/* ${WORKDIR}/
+cp -rf dependencies/* ${WORKDIR}/application
+cp -rf spring-boot-loader/* ${WORKDIR}/application
+cp -rf snapshot-dependencies/* ${WORKDIR}/application
+cp -rf application/* ${WORKDIR}/application
 ```
 
 ```bash
-# 启动, 参数自行更改
+# 启动参数, /opt/halo/data/.halo2 为持久化数据目录, 可以自行更改, 升级前后保持一致即可
+cd /opt/halo/application
+export JVM_OPTS="-Xmx256m -Xms256m"
 export HALO_WORK_DIR="/opt/halo/data/.halo2"
 export SPRING_CONFIG_LOCATION="optional:classpath:/;optional:file:opt/halo/data/.halo2"
-java -Xmx256m -Xms256m org.springframework.boot.loader.JarLauncher
+java $JVM_OPTS org.springframework.boot.loader.JarLauncher
+```
+
+```bash
+## 使用 systemd 管理 halo 服务
+
+# create user
+useradd --system --no-create-home --home-dir /opt/halo --shell /bin/false halo
+
+# create env
+
+cat > /opt/halo/env << "EOF"
+JVM_OPTS="-Xmx256m -Xms256m"
+HALO_WORK_DIR="/opt/halo/data/.halo2"
+SPRING_CONFIG_LOCATION="optional:classpath:/;optional:file:opt/halo/data"
+EOF
+
+# create service
+cat > /etc/systemd/system/halo.service << "EOF"
+[Unit]
+Description=Halo Web Server
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/halo/application
+EnvironmentFile=-/opt/halo/env
+Type=simple
+ExecStart=/usr/bin/java $JVM_OPTS org.springframework.boot.loader.JarLauncher
+Restart=on-failure
+RestartSec=10
+User=halo
+Group=halo
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# reset permission
+chown -R halo:halo /opt/halo
+
+# enable service
+systemctl enable halo.service
+systemctl start halo.service
 ```
 
 ## 参数说明
